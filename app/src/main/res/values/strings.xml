@@ -2,6 +2,10 @@
     <string name="app_name">SMS Sender</string>
     <string name="button_text">Send SMS</string>
     <string name="button_stop">Stop</string>
+    <string name="phone_label">Phone</string>
+    <string name="count_lablel">How much to send</string>
     <string name="phone_hint">Enter phone number</string>
     <string name="count_hint">Enter amount</string>
+    <string name="count_left">Left:</string>
+    <string name="done">Job done!</string>
 </resources>

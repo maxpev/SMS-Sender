@@ -1,12 +1,17 @@
 package com.maxpevnitskiy.smssender;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
 import android.preference.PreferenceManager;
 import android.provider.ContactsContract;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -24,6 +29,9 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
     private static final String JOB_TAG = "SMS-sender";
     public static final String COUNT_TAG = "count";
     private static final int PICK_CONTACT_REQUEST = 1;
+    private static final int PERMISSION_REQUEST_CODE = 2;
+
+    private boolean mPermissionGranted;
     private Context context;
     private FirebaseJobDispatcher mDispatcher;
     private EditText mPhoneEditText;
@@ -58,6 +66,23 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             }
         });
 
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_DENIED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, PERMISSION_REQUEST_CODE);
+        } else {
+            mPermissionGranted = true;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mPermissionGranted = true;
+            } else {
+                mPermissionGranted = false;
+            }
+        }
     }
 
     @Override
@@ -75,6 +100,7 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
                 int column = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
                 String number = cursor.getString(column);
                 mPhoneEditText.setText(number);
+                cursor.close();
             }
         }
     }
@@ -94,20 +120,29 @@ public class MainActivity extends AppCompatActivity implements SharedPreferences
             mCounter.setText(String.valueOf(count));
         }
 
+        String phoneNumber = mPhoneEditText.getText().toString();
+        if (phoneNumber.length() > 0 && mPermissionGranted) {
 
-        Job job = mDispatcher.newJobBuilder()
-                .setService(SMSJobService.class)
-                .setTag(JOB_TAG)
-                .setRecurring(true)
-                .setLifetime(Lifetime.FOREVER)
-                .setTrigger(Trigger.executionWindow(0, 1))
-                .setReplaceCurrent(true)
+            Bundle phone = new Bundle();
+            phone.putString(SMSJobService.PHONE_NUMBER_KEY, phoneNumber);
+
+
+            Job job = mDispatcher.newJobBuilder()
+                    .setService(SMSJobService.class)
+                    .setTag(JOB_TAG)
+                    .setRecurring(true)
+                    .setLifetime(Lifetime.FOREVER)
+                    .setTrigger(Trigger.executionWindow(0, 1))
+                    .setReplaceCurrent(true)
 //                .setRetryStrategy(RetryStrategy.DEFAULT_LINEAR)
 //                .setConstraints(Constraint.ON_UNMETERED_NETWORK)
-                .build();
+                    .setExtras(phone)
+                    .build();
 
 
-        mDispatcher.mustSchedule(job);
+            mDispatcher.mustSchedule(job);
+        }
+
     }
 
     public void stopService(View view) {
